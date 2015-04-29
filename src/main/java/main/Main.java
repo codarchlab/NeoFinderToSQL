@@ -3,7 +3,6 @@ package main;
 import java.io.*;
 import java.util.*;
 import java.util.regex.*;
-import java.util.Date;
 
 
 public class Main {
@@ -22,6 +21,12 @@ public class Main {
 		System.out.println("CSV data has to be tab-separated.");
 		List<ArachneEntity> arachneEntities = new ArrayList<ArachneEntity>();
 		
+		System.out.println(args);
+		for(int i = 0; i < args.length; i++)
+		{
+			System.out.println(args[i]);
+		}
+		
 		if(args.length < 2)
 		{
 			System.err.println("No path for csv files provided.");
@@ -29,6 +34,7 @@ public class Main {
 		}
 		
 		File scanDirectory = new File(args[0]);
+		outputPath = args[1];
 		
 		if(scanDirectory.isDirectory())
 		{
@@ -47,6 +53,7 @@ public class Main {
 		System.out.println("Processed " + lineCounter + " lines, " + entityCounter + " entities, " + folderCounter +  " folders, " + imageCounter + " images and " + otherCounter + " other.");
 		// Schreibe SQL Update
 		
+		writeSQLUpdate(arachneEntities);
 		
 	}
 	
@@ -122,7 +129,7 @@ public class Main {
 		return arachneEntities;
 	}
 	
-	private void writeSQLUpdate(ArrayList<ArachneEntity> data)
+	private static void writeSQLUpdate(List<ArachneEntity> data)
 	{
 		try {
 
@@ -144,7 +151,50 @@ public class Main {
 							ArachneEntity currentEntity = data.get(i);
 							for(int j = 0; j < currentEntity.getFolders().size(); j++)
 							{
-								updateString ="INSERT INTO...";
+								ImageInfo currentImage = currentEntity.getFolders().get(j);
+								String dateinameTivoli =  currentImage.getName().replace("tif", "jpg");
+								String folderType = new String();
+								
+								if(currentImage.getPath().toLowerCase().contains("rohscan"))
+									folderType = "Rohscan";
+								else if(currentImage.getPath().toLowerCase().contains("datenbank"))
+									folderType = "datenbankFertig";
+								else if(currentImage.getPath().toLowerCase().contains("druckfertig"))
+									folderType = "druckfertig";
+								else
+									folderType = "unbekannt";
+								
+								updateString = "INSERT INTO `marbildertivoli` "
+										+ "(`FS_ArachneEntityID`,"
+										+ " `DateinameMarbilderTivoli`,"
+										+ " `Dateiname`,"
+										+ " `Pfad`,"
+										+ " `Ordnertyp`,"
+										+ " `erstellt`,"
+										+ " `geaendert`,"
+										+ " `Katalog`,"
+										+ " `Volume`)"
+										+ "VALUES"
+										+ "("+currentEntity.getArachneID() +","
+										+ " '"+dateinameTivoli+"',"
+										+ " '"+currentImage.getName()+"',"
+										+ " '"+currentImage.getPath()+"',"
+										+ " '"+folderType+"',"
+										+ " '"+currentImage.getCreated()+"',"
+										+ " '"+currentImage.getLastChanged()+"',"
+										+ " '"+currentEntity.getCatalogName()+"',"
+										+ " '"+currentEntity.getVolumeName()+"'"
+										+ " )"
+										+ " ON DUPLICATE KEY UPDATE "
+										+ "`FS_ArachneEntityID` = "+currentEntity.getArachneID()+", "
+										+ "`DateinameMarbilderTivoli`='"+dateinameTivoli+"', "
+										+ "`Dateiname`='"+currentImage.getName()+"', "
+										+ "`Pfad`='"+currentImage.getPath()+"', "
+										+ "`Ordnertyp`='"+folderType+"', "
+										+ "`erstellt`='"+currentImage.getCreated()+"', "
+										+ "`geaendert`='"+currentImage.getLastChanged()+"', "
+										+ "`Katalog`='"+currentEntity.getCatalogName()+"', "
+										+ "`Volume`='"+currentEntity.getVolumeName()+"';";
 								
 								
 								out.println(updateString);
@@ -155,7 +205,6 @@ public class Main {
 				} 
 		}
 		catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
