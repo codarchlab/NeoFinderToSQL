@@ -42,17 +42,24 @@ public class Main {
 			for(int i = 0; i < files.length; i++)
 			{
 				if(files[i].endsWith(".csv"))
+				{
 					writeSQLUpdate(readCSV(files[i]));
+					
+					System.out.println("Processed " + lineCounter + " lines, " + entityCounter 
+						+ " entities, " + folderCounter +  " folders, " + fileCounter 
+						+ " files and " + otherCounter + " other.");
+				}
 			}
 		} 
 		else if(scanDirectory.getName().endsWith(".csv"))
 		{
 			writeSQLUpdate(readCSV(scanDirectory.getAbsolutePath()));
+			System.out.println("Processed " + lineCounter + " lines, " + entityCounter 
+					+ " entities, " + folderCounter +  " folders, " + fileCounter 
+					+ " files and " + otherCounter + " other.");
 		}
 
-		System.out.println("Processed " + lineCounter + " lines, " + entityCounter 
-				+ " entities, " + folderCounter +  " folders, " + fileCounter 
-				+ " files and " + otherCounter + " other.");
+		
 	}
 
 	private static List<ArchivedFileInfo> readCSV(String path) {
@@ -89,13 +96,7 @@ public class Main {
 					updateCurrentArachneEntityInfo(lineContents);					
 				}
 				else
-				{	
-					int suffixStart = lineContents[0].lastIndexOf('.');
-					String fileSuffix = "";
-					if(suffixStart != -1){
-						fileSuffix = lineContents[0].substring(suffixStart, lineContents[0].length());
-					}
-					
+				{						
 					fileCounter++;
 					if(currentEntityInfo != null)
 					{
@@ -138,7 +139,7 @@ public class Main {
 					System.out.println("Created new file " + outputPath);
 			}
 
-			PrintWriter out = new PrintWriter(outputDirectory);
+			PrintWriter out = new PrintWriter(new FileOutputStream(outputDirectory, true));
 
 			String updateString = new String();
 			for(int i = 0; i < list.size(); i++)
