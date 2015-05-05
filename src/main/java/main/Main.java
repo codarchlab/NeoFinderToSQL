@@ -20,6 +20,7 @@ public class Main {
 	private static Pattern bauwerkPattern = Pattern.compile("^BT(.*)$");
 	private static Pattern zeroPattern = Pattern.compile("^0+(\\w+)$");
 	private static Pattern numbersPattern = Pattern.compile("\\d+");
+	private static Pattern fileNamePattern = Pattern.compile("^.*_(\\w+)(,\\d{2})?\\.\\w{3}$");
 
 	private static String outputPath;
 
@@ -106,7 +107,17 @@ public class Main {
 								lineContents[10], lineContents[11]));
 					}	
 					else
-					{							
+					{			
+//						if(lineContents[1].toLowerCase().contains("datenbank") || 
+//								lineContents[1].toLowerCase().contains("druckfertig") ||
+//								lineContents[1].toLowerCase().contains("rohscan"))
+//						{
+						ArachneEntity info = tryParsingArachneEntityFromFileName(lineContents[0]);
+						if(info != null)
+						{}
+//						}
+						
+						
 						arachneEntities.add(new ArchivedFileInfo(null, 
 								lineContents[0], lineContents[1], lineContents[3], lineContents[4], 
 								false, null, lineContents[10], lineContents[11]));
@@ -259,8 +270,40 @@ public class Main {
 				entityCounter++;
 				return;
 			}
-		}
-		
+		}		
 		currentEntityInfo = null;
+	}
+	
+	private static ArachneEntity tryParsingArachneEntityFromFileName(String fileName)
+	{
+		Matcher matchFile = fileNamePattern.matcher(fileName);
+		
+		if(matchFile.matches())
+		{
+			Matcher bauwerkMatcher = bauwerkPattern.matcher(matchFile.group(1));			
+			if(bauwerkMatcher.matches())
+			{
+				entityCounter++;				
+				return new ArachneEntity(bauwerkMatcher.group(1), true, "bauwerksteil");
+			}
+			
+			Matcher zeroMatcher = zeroPattern.matcher(matchFile.group(1));			
+			if(zeroMatcher.matches())
+			{
+				entityCounter++;
+				return new ArachneEntity(zeroMatcher.group(1), true, null);
+			}	
+			
+			Matcher numbersMatcher = numbersPattern.matcher(matchFile.group(1));
+			
+			if(numbersMatcher.matches())
+			{
+				entityCounter++;
+				return new ArachneEntity(matchFile.group(1), false, null);
+			}
+			System.out.println("could not match: " + fileName);
+		}	
+		
+		return null;
 	}
 }
