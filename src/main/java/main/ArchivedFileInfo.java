@@ -15,8 +15,10 @@ public class ArchivedFileInfo {
 	private boolean foreignKey;
 	private String forcedTable;
 	
+	private String resourceType;
+	
 	public ArchivedFileInfo(String arachneID, String name, String path, String created, String lastChanged, 
-			boolean usesForeignKey, String forcedTable, String catalog, String volume){
+			boolean usesForeignKey, String forcedTable, String catalog, String volume, String resourceType){
 		
 		this.arachneID = arachneID;
 				
@@ -30,6 +32,7 @@ public class ArchivedFileInfo {
 		
 		this.catalog = catalog;
 		this.volume = volume;
+		this.resourceType = resourceType;
 	}
 	
 	public String getName() {
@@ -86,6 +89,14 @@ public class ArchivedFileInfo {
 
 	public void setForcedTable(String forcedTable) {
 		this.forcedTable = forcedTable;
+	}
+
+	public String getResourceType() {
+		return resourceType;
+	}
+
+	public void setResourceType(String resourceType) {
+		this.resourceType = resourceType;
 	}
 
 	public void printContents()
