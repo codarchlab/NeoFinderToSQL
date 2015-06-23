@@ -5,13 +5,11 @@ import java.util.regex.*;
 import java.io.*;
 
 public class Main {
-	private static ArachneEntity currentEntityInfo;
 
 	private static int lineCounter = 0;
 	private static int entityCounter = 0;
 	private static int folderCounter = 0;
 	private static int fileCounter = 0;
-	private static int filesWithArachneIDCounter = 0;
 	private static int otherCounter = 0;
 
 	private static int sqlLineCounter = 0;
@@ -30,62 +28,69 @@ public class Main {
 
 	private static boolean firstLine = false;
 
-	private static Pattern richtigPattern = Pattern
-			.compile(".*:richtig:(\\w+)$");
 	private static Pattern bauwerkPattern = Pattern.compile("^BT(\\d+)$");
 	private static Pattern zeroPattern = Pattern.compile("^0+(\\d+)$");
 	private static Pattern numbersPattern = Pattern.compile("\\d+");
 	private static Pattern fileNamePattern = Pattern
 			.compile("^.*_(\\w+)(,\\d{2})?\\.\\w{3}$");
 
-	private static String outputPath;
+	private static String outputPath = "results";
 
 	public static void main(String[] args) {
+		
+		for(int i = 0; i < args.length; i++)
+		{
+			System.out.println(args[i]);
+		}
+		
+		
+		File outputFolder = new File(outputPath);
+		if (!outputFolder.exists())
+			outputFolder.mkdirs();
 
-		System.out.println("CSV data has to be tab-separated.");
-
-		if (args.length < 2) {
-			System.err.println("No path for csv files provided.");
+		if (args.length != 2) {
+			System.out
+					.println("Needings two parameters: arg[0] = source folder or file, arg[1] = number of lines per SQL-update file.");
 			return;
 		}
 
-		//TODO: Parsing/Error handling
 		File scanDirectory = new File(args[0]);
-		outputPath = args[1];
-		
-		sqlLineLimit = Integer.parseInt(args[2]);
-		
+
+		if (!scanDirectory.exists()) {
+			System.out.println("Source " + args[0] + " does not exist.");
+			return;
+		}
+
+		try {
+			sqlLineLimit = Integer.parseInt(args[1]);
+		} catch (NumberFormatException e) {
+			System.out.println("Invalid sql line limit: " + args[1]);
+			return;
+		}
 
 		if (scanDirectory.isDirectory()) {
 			String[] files = scanDirectory.list();
 			for (int i = 0; i < files.length; i++) {
 				if (files[i].endsWith(".csv")) {
-					firstLine = true;
 					readCSV(files[i]);
-
-					System.out.println("Processed " + lineCounter + " lines, "
-							+ entityCounter + " entities, " + folderCounter
-							+ " folders, " + fileCounter + " files and "
-							+ otherCounter + " other.");
 				}
 			}
 		} else if (scanDirectory.getName().endsWith(".csv")) {
 			readCSV(scanDirectory.getAbsolutePath());
-			System.out.println("Processed " + lineCounter + " lines, "
-					+ entityCounter + " entities, " + folderCounter
-					+ " folders, " + fileCounter + " files and " + otherCounter
-					+ " other.");
+			
 		}
 
 	}
 
-	private static List<ArchivedFileInfo> readCSV(String path) {
-		currentEntityInfo = null;
-		List<ArchivedFileInfo> arachneEntities = new ArrayList<ArchivedFileInfo>();
+	private static void readCSV(String path) {
+		firstLine = true;
+		sqlCounter = 0;
+		sqlLineCounter = 0;
+		
 		File file = new File(path);
 		if (!file.canRead()) {
 			System.out.println("Unable to read file: " + path);
-			return null;
+			return;
 		}
 		BufferedReader reader;
 		try {
@@ -111,26 +116,26 @@ public class Main {
 					continue;
 				}
 
-				if (lineContents[indexType].compareTo("Ordner") == 0) {
+				if (lineContents[indexType].compareTo("Ordner") == 0 || lineContents[indexType].compareTo("Folder") == 0) {
 					folderCounter++;
 				} else {
 					fileCounter++;
 
 					try {
-						String currentName = (indexName != -1) ? lineContents[indexName]
-								: null;
-						String currentPath = (indexPath != -1) ? lineContents[indexPath]
-								: null;
-						String currentCreated = (indexCreated != -1) ? lineContents[indexCreated]
-								: null;
-						String currentChanged = (indexChanged != -1) ? lineContents[indexChanged]
-								: null;
-						String currentType = (indexType != -1) ? lineContents[indexType]
-								: null;
-						String currentCatalog = (indexCatalog != -1) ? lineContents[indexCatalog]
-								: null;
-						String currentVolume = (indexVolume != -1) ? lineContents[indexVolume]
-								: null;
+						String currentName = (indexName != -1) 
+								? lineContents[indexName] : null;
+						String currentPath = (indexPath != -1) 
+								? lineContents[indexPath] : null;
+						String currentCreated = (indexCreated != -1) 
+								? lineContents[indexCreated] : null;
+						String currentChanged = (indexChanged != -1) 
+								? lineContents[indexChanged] : null;
+						String currentType = (indexType != -1) 
+								? lineContents[indexType] : null;
+						String currentCatalog = (indexCatalog != -1) 
+								? lineContents[indexCatalog] : null;
+						String currentVolume = (indexVolume != -1) 
+								? lineContents[indexVolume]	: null;
 
 						ArachneEntity entityInfo = null;
 
@@ -165,8 +170,11 @@ public class Main {
 							sqlLineCounter++;
 						}
 
-						writeSQLUpdate(list, outputPath + "_" + sqlCounter
-								+ ".sql");
+						writeSQLUpdate(
+								list,
+								file.getName().substring(0,
+										file.getName().lastIndexOf('.'))
+										+ "_sqlUpdate_" + sqlCounter + ".sql");
 					} catch (ArrayIndexOutOfBoundsException e) {
 						System.out.println("Wrong index at line:");
 						System.out.println(currentLine);
@@ -174,40 +182,41 @@ public class Main {
 								+ indexCreated + " " + indexChanged + " "
 								+ indexType + " " + indexCatalog + " "
 								+ indexVolume);
-
 					}
 
 				}
 				lineContents = null;
 			}
 			reader.close();
+			
+			System.out.println("Processed " + path + ": " + lineCounter + " lines, "
+					+ entityCounter + " entities, " + folderCounter
+					+ " folders, " + fileCounter + " files and " + otherCounter
+					+ " other.");
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-
-		return arachneEntities;
 	}
 
-	private static void writeSQLUpdate(List<ArchivedFileInfo> list, String path) {
+	private static void writeSQLUpdate(List<ArchivedFileInfo> list,
+			String fileName) {
 		try {
-			File outputDirectory = new File(path);
+			File outputDirectory = new File(outputPath + "/" + fileName);
 			if (outputDirectory.exists()) {
 				// System.out.println("File at " + path +
 				// " already exists, appending.");
 			} else {
 				if (!outputDirectory.createNewFile())
 					System.err.println("Could not create output file at "
-							+ path);
+							+ fileName);
 				else
-					System.out.println("Created new file " + path);
+					System.out.println("Created new file " + fileName);
 			}
 
 			PrintWriter out = new PrintWriter(new FileOutputStream(
 					outputDirectory, true));
-			
-			
 
 			String updateString = new String();
 			for (int i = 0; i < list.size(); i++) {
@@ -234,28 +243,21 @@ public class Main {
 					} else {
 						if (currentFile.isForeignKey()
 								&& currentFile.getForcedTable() != null) {
-							arachneEntityID = "(SELECT `ArachneEntityID` FROM `arachneentityidentification` "
-									+ " WHERE `TableName` = '"
-									+ currentFile.getForcedTable()
-									+ "' "
-									+ " AND `ForeignKey` = "
-									+ Long.parseLong(currentFile.getArachneID()
-											.replace("BT", ""))
+							arachneEntityID = "(SELECT `ArachneEntityID` "
+									+ "FROM `arachneentityidentification` "
+									+ " WHERE `TableName` = '" + currentFile.getForcedTable() + "' "
+									+ " AND `ForeignKey` = " + Long.parseLong(currentFile.getArachneID().replace("BT", ""))
 									+ " HAVING COUNT(*) = 1)";
 						} else if (currentFile.isForeignKey()) {
 							arachneEntityID = "(SELECT `ArachneEntityID` FROM `arachneentityidentification` "
-									+ " WHERE `ForeignKey` = "
-									+ Long.parseLong(currentFile.getArachneID()
-											.replace("BT", ""))
+									+ " WHERE `ForeignKey` = " + Long.parseLong(currentFile.getArachneID().replace("BT", ""))
 									+ " HAVING COUNT(*) = 1)";
 						} else {
 							arachneEntityID = currentFile.getArachneID();
 						}
 
 						dateinameTivoli = "(SELECT `DateinameMarbilder` FROM `marbilder` "
-								+ "WHERE `DateinameMarbilder`='"
-								+ currentFile.getName().replace("tif", "jpg")
-								+ "')";
+								+ "WHERE `DateinameMarbilder`='" + currentFile.getName().replace("tif", "jpg") + "')";
 					}
 
 					updateString = "INSERT INTO `marbildertivoli` "
@@ -264,67 +266,27 @@ public class Main {
 							+ " `Pfad`," + " `Ordnertyp`," + " `erstellt`,"
 							+ " `geaendert`," + " `Katalog`," + " `Volume`,"
 							+ " `Dateityp`)" + "VALUES" + "("
-							+ arachneEntityID
-							+ ","
-							+ " "
-							+ dateinameTivoli
-							+ ","
-							+ " '"
-							+ currentFile.getName().replaceAll("'", "\\\\'")
-							+ "',"
-							+ " '"
-							+ currentFile.getPath().replaceAll("'", "\\\\'")
-							+ "',"
-							+ " '"
-							+ folderType
-							+ "',"
-							+ " '"
-							+ currentFile.getCreated()
-							+ "',"
-							+ " '"
-							+ currentFile.getLastChanged()
-							+ "',"
-							+ " '"
-							+ currentFile.getCatalog()
-							+ "',"
-							+ " '"
-							+ currentFile.getVolume()
-							+ "',"
-							+ " '"
-							+ currentFile.getResourceType()
-							+ "'"
-							+ " )"
+							+ arachneEntityID + ", "+ dateinameTivoli + ", "
+							+ "'" + currentFile.getName().replaceAll("'", "''") + "', "
+							+ "'" + currentFile.getPath().replaceAll("'", "''") + "', "
+							+ "'" + folderType	+ "', "
+							+ "'" + currentFile.getCreated() + "', "
+							+ "'" + currentFile.getLastChanged() + "', "
+							+ "'" + currentFile.getCatalog() + "', "
+							+ "'" + currentFile.getVolume()	+ "', "
+							+ "'" + currentFile.getResourceType() + "')"
 							+ " ON DUPLICATE KEY UPDATE "
-							+ "`FS_ArachneEntityID` = "
-							+ arachneEntityID
-							+ ", "
-							+ "`DateinameMarbilderTivoli`="
-							+ dateinameTivoli
-							+ ", "
-							+ "`Dateiname`='"
-							+ currentFile.getName().replaceAll("'", "\\\\'")
-							+ "', "
-							+ "`Pfad`='"
-							+ currentFile.getPath().replaceAll("'", "\\\\'")
-							+ "', "
-							+ "`Ordnertyp`='"
-							+ folderType
-							+ "', "
-							+ "`erstellt`='"
-							+ currentFile.getCreated()
-							+ "', "
-							+ "`geaendert`='"
-							+ currentFile.getLastChanged()
-							+ "', "
-							+ "`Katalog`='"
-							+ currentFile.getCatalog()
-							+ "', "
-							+ "`Volume`='"
-							+ currentFile.getVolume()
-							+ "', "
-							+ "`Dateityp`='"
-							+ currentFile.getResourceType() + "';";
-					
+							+ "`FS_ArachneEntityID` = "	+ arachneEntityID + ", "
+							+ "`DateinameMarbilderTivoli`="	+ dateinameTivoli + ", "
+							+ "`Dateiname`='" + currentFile.getName().replaceAll("'", "''") + "', "
+							+ "`Pfad`='" + currentFile.getPath().replaceAll("'", "''") + "', "
+							+ "`Ordnertyp`='" + folderType + "', "
+							+ "`erstellt`='" + currentFile.getCreated()	+ "', "
+							+ "`geaendert`='" + currentFile.getLastChanged() + "', "
+							+ "`Katalog`='"	+ currentFile.getCatalog() + "', "
+							+ "`Volume`='" + currentFile.getVolume() + "', "
+							+ "`Dateityp`='" + currentFile.getResourceType() + "';";
+
 					out.println(updateString);
 				}
 
@@ -335,48 +297,6 @@ public class Main {
 		} catch (java.lang.NumberFormatException e) {
 			e.printStackTrace();
 		}
-	}
-
-	private static void updateCurrentArachneEntityInfo(String[] lineContents) {
-		if (currentEntityInfo != null
-				&& lineContents[indexPath]
-						.contains(currentEntityInfo.arachneID)) // we are just
-																// in a
-																// subfolder
-			return;
-
-		Matcher richtigMatcher = richtigPattern
-				.matcher(lineContents[indexPath]);
-
-		if (richtigMatcher.matches()) {
-			Matcher bauwerkMatcher = bauwerkPattern.matcher(richtigMatcher
-					.group(1));
-			if (bauwerkMatcher.matches()) {
-				currentEntityInfo = new ArachneEntity(bauwerkMatcher.group(1),
-						true, "bauwerksteil");
-				entityCounter++;
-				return;
-			}
-
-			Matcher zeroMatcher = zeroPattern.matcher(richtigMatcher.group(1));
-			if (zeroMatcher.matches()) {
-				currentEntityInfo = new ArachneEntity(zeroMatcher.group(1),
-						true, null);
-				entityCounter++;
-				return;
-			}
-
-			Matcher numbersMatcher = numbersPattern.matcher(richtigMatcher
-					.group(1));
-
-			if (numbersMatcher.matches()) {
-				currentEntityInfo = new ArachneEntity(richtigMatcher.group(1),
-						false, null);
-				entityCounter++;
-				return;
-			}
-		}
-		currentEntityInfo = null;
 	}
 
 	private static ArachneEntity tryParsingArachneEntityFromFileName(
@@ -427,18 +347,18 @@ public class Main {
 			if (lineContents[i].compareTo("Name") == 0) {
 				indexName = i;
 				setIndices++;
-			} else if (lineContents[i].compareTo("Pfad") == 0) {
+			} else if (lineContents[i].compareTo("Pfad") == 0 || lineContents[i].compareTo("Path") == 0) {
 				indexPath = i;
 				setIndices++;
-			} else if (lineContents[i].compareTo("Erstelldatum") == 0) {
+			} else if (lineContents[i].compareTo("Erstelldatum") == 0 || lineContents[i].compareTo("Date Created") == 0) {
 				indexCreated = i;
 				setIndices++;
-			} else if (lineContents[i].compareTo("Änderungsdatum") == 0) {
+			} else if (lineContents[i].compareTo("Änderungsdatum") == 0 || lineContents[i].compareTo("Date Modified") == 0) {
 				indexChanged = i;
-			} else if (lineContents[i].compareTo("Art") == 0) {
+			} else if (lineContents[i].compareTo("Art") == 0 || lineContents[i].compareTo("Kind") == 0) {
 				indexType = i;
 				setIndices++;
-			} else if (lineContents[i].compareTo("Katalog") == 0) {
+			} else if (lineContents[i].compareTo("Katalog") == 0 || lineContents[i].compareTo("Catalog") == 0) {
 				indexCatalog = i;
 				setIndices++;
 			} else if (lineContents[i].compareTo("Volume") == 0) {
@@ -449,7 +369,7 @@ public class Main {
 		}
 
 		if (setIndices < 6) {
-			System.err.println("Only found" + setIndices + " indices.");
+			System.err.println("Only found " + setIndices + " indices.");
 			System.err.println(indexName + " " + indexPath + " " + indexCreated
 					+ " " + indexChanged + " " + indexType + " " + indexCatalog
 					+ " " + indexVolume);
