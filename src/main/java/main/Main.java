@@ -282,7 +282,6 @@ public class Main {
 	}
 
 	private static void setIndices(String[] lineContents) {
-		int setIndices = 0;
 
 		indexName = -1;
 		indexPath = -1;
@@ -299,24 +298,18 @@ public class Main {
 
 			if (lineContents[i].compareTo("Name") == 0) {
 				indexName = i;
-				setIndices++;
 			} else if (lineContents[i].compareTo("Pfad") == 0 || lineContents[i].compareTo("Path") == 0) {
 				indexPath = i;
-				setIndices++;
 			} else if (lineContents[i].compareTo("Erstelldatum") == 0 || lineContents[i].compareTo("Date Created") == 0) {
 				indexCreated = i;
-				setIndices++;
 			} else if (lineContents[i].compareTo("Änderungsdatum") == 0 || lineContents[i].compareTo("Date Modified") == 0) {
 				indexChanged = i;
 			} else if (lineContents[i].compareTo("Art") == 0 || lineContents[i].compareTo("Kind") == 0) {
 				indexType = i;
-				setIndices++;
 			} else if (lineContents[i].compareTo("Katalog") == 0 || lineContents[i].compareTo("Catalog") == 0) {
 				indexCatalog = i;
-				setIndices++;
 			} else if (lineContents[i].compareTo("Volume") == 0) {
 				indexCatalog = i;
-				setIndices++;
 			}
 		}
 	}
