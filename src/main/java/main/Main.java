@@ -1,5 +1,8 @@
 package main;
 
+import java.text.DateFormatSymbols;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.*;
 import java.io.*;
@@ -34,17 +37,39 @@ public class Main {
 	private static Pattern fileNamePattern = Pattern
 			.compile("^.*_(\\w+)(,\\d{2})?\\.\\w{3}$");
 
+	private static String targetTable = "marbildertivoli";
+	
 	private static String outputPath = "results";
+	private static String logFile = "errors.log";
+	private static PrintWriter parserLog;
+	
+	private static SimpleDateFormat dateFormatGerman =
+            new SimpleDateFormat("EEEE, dd. MMMM yyyy, HH:mm:ss", new DateFormatSymbols(Locale.GERMANY));
+	private static SimpleDateFormat dateFormatEnglish =
+            new SimpleDateFormat("EEEE, MMMM dd, yyyy, HH:mm:ss", new DateFormatSymbols(Locale.ENGLISH));
+	private static SimpleDateFormat outputDateTimeFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	
+	public static void main(String[] args) throws FileNotFoundException {
 
-	public static void main(String[] args) {
+		parserLog = new PrintWriter(new FileOutputStream(logFile, true));
+		
+		System.out.println("Please specify target table:");
+		
+		 BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+		 try {
+			targetTable = br.readLine();
+		} catch (IOException e) {
+			e.printStackTrace();
+			System.out.println("Using default table:" + targetTable);
+		}
+		
 		
 		File outputFolder = new File(outputPath);
 		if (!outputFolder.exists())
 			outputFolder.mkdirs();
 
 		if (args.length != 1) {
-			System.out
-					.println("Expecting one parameter: arg[0] = source folder or file.");
+			System.out.println("Expecting one parameter: arg[0] = source folder or file.");
 			return;
 		}
 
@@ -75,10 +100,11 @@ public class Main {
 
 
 	private static void readCSV(String path) {
+		int currentColumns = -1;
 		isFirstLine = true;
 		resultFileCounter = 0;
-		resultLineCounter = 0;			
-		
+		resultLineCounter = 0;	
+		System.out.println("New file: " + path);
 		File file = new File(path);
 		if (!file.canRead()) {
 			System.out.println("Unable to read file: " + path);
@@ -86,26 +112,34 @@ public class Main {
 		}
 		
 		try {		
-			BufferedReader reader = new BufferedReader(new FileReader(file));
-			PrintWriter out = createNewOutstream(file.getName());			
+			BufferedReader reader = new BufferedReader(new InputStreamReader(
+                    new FileInputStream(path), "UTF8"));
+			PrintWriter out = createNewOutstream(file.getName());
 			String currentLine = null;
 
 			while ((currentLine = reader.readLine()) != null) {
 				inputLineCounter++;
-				String[] lineContents = currentLine.split("\\t");
+				String[] lineContents = currentLine.split("\\t", -1);
 
 				for (int i = 0; i < lineContents.length; i++)
 					lineContents[i] = lineContents[i].trim();
 
 				if (lineContents.length < 12) {
 					skippedCounter++;
-					// System.out.println("Skipping line: " + currentLine);
 					continue;
 				}
 				if (lineContents[0].compareTo("Name") == 0 && isFirstLine) {
-					System.out.println("New file: " + path);
 					isFirstLine = false;
+					currentColumns = lineContents.length;
 					setIndices(lineContents);
+					continue;
+				}
+				
+				if(lineContents.length > currentColumns)
+				{
+					parserLog.println("Possible additional tabs:");
+					parserLog.println(currentLine);
+					parserLog.println(lineContents.length + ", expected columns: " + currentColumns);
 					continue;
 				}
 				
@@ -120,10 +154,6 @@ public class Main {
 							? lineContents[indexName] : null;
 					String currentPath = (indexPath != -1) 
 							? lineContents[indexPath] : null;
-					String currentCreated = (indexCreated != -1) 
-							? lineContents[indexCreated] : null;
-					String currentChanged = (indexChanged != -1) 
-							? lineContents[indexChanged] : null;
 					String currentType = (indexType != -1) 
 							? lineContents[indexType] : null;
 					String currentCatalog = (indexCatalog != -1) 
@@ -131,6 +161,9 @@ public class Main {
 					String currentVolume = (indexVolume != -1) 
 							? lineContents[indexVolume]	: null;
 
+					String currentCreated = (indexCreated != -1) ? TryParsingDate(lineContents[indexCreated], currentLine) : null;
+					String currentChanged = (indexChanged != -1) ? TryParsingDate(lineContents[indexChanged], currentLine) : null;
+						
 					ArachneEntity entityInfo = null;
 
 					if (currentPath.toLowerCase().contains("datenbank")
@@ -164,20 +197,22 @@ public class Main {
 
 					writeSQLUpdate(list, out);
 				} catch (ArrayIndexOutOfBoundsException e) {
-					System.out.println("Wrong index at line:");
-					System.out.println(currentLine);
-					System.out.println("Indices:");
-					System.out.println(indexName + " " + indexPath + " "
+					parserLog.println("ArrayIndexOutOfBoundsException at line:");
+					parserLog.println(currentLine);
+					parserLog.println("Indices:");
+					parserLog.println(indexName + " " + indexPath + " "
 							+ indexCreated + " " + indexChanged + " "
 							+ indexType + " " + indexCatalog + " "
 							+ indexVolume);
-					
-					e.printStackTrace();
-				}
+				} 
+//				catch (ParseException e) {
+//					e.printStackTrace();
+//				}
 				lineContents = null;
 			}
 			reader.close();
 			out.close();
+			parserLog.close();
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
@@ -230,7 +265,7 @@ public class Main {
 							+ "WHERE `DateinameMarbilder`='" + currentFile.getName().replace("tif", "jpg") + "')";
 				}
 
-				updateString = "INSERT INTO `marbildertivoli` "
+				updateString = "INSERT INTO `"+targetTable+"` "
 						+ "(`FS_ArachneEntityID`,"
 						+ " `DateinameMarbilderTivoli`," + " `Dateiname`,"
 						+ " `Pfad`," + " `Ordnertyp`," + " `erstellt`,"
@@ -277,7 +312,6 @@ public class Main {
 				return new ArachneEntity(matchFile.group(1), false, null);
 			}
 		}
-
 		return null;
 	}
 
@@ -295,7 +329,7 @@ public class Main {
 		indexVolume = -1;
 
 		for (int i = 0; i < lineContents.length; i++) {
-
+			// System.out.println("Line content " + i + ": " + lineContents[i]);
 			if (lineContents[i].compareTo("Name") == 0) {
 				indexName = i;
 			} else if (lineContents[i].compareTo("Pfad") == 0 || lineContents[i].compareTo("Path") == 0) {
@@ -309,9 +343,18 @@ public class Main {
 			} else if (lineContents[i].compareTo("Katalog") == 0 || lineContents[i].compareTo("Catalog") == 0) {
 				indexCatalog = i;
 			} else if (lineContents[i].compareTo("Volume") == 0) {
-				indexCatalog = i;
+				indexVolume = i;
 			}
 		}
+		
+//		System.out.println("Indices");
+//		System.out.println("Name " + indexName);
+//		System.out.println("Path " + indexPath);
+//		System.out.println("Created " + indexCreated);
+//		System.out.println("Changed " + indexChanged);
+//		System.out.println("Type " + indexType);
+//		System.out.println("Catalog " + indexCatalog);
+//		System.out.println("Volume " + indexVolume);
 	}
 	
 	private static PrintWriter createNewOutstream(String currentFileName) throws IOException
@@ -323,15 +366,39 @@ public class Main {
 		
 		File outputDirectory = new File(finalFileName);
 		if (outputDirectory.exists()) {
-			System.out.println("File at " + finalFileName + " already exists, appending.");
+			System.out.println("File " + finalFileName + " already exists, appending.");
 		} else {
 			if (!outputDirectory.createNewFile())
-				System.err.println("Could not create output file at "
-						+ finalFileName);
+				System.err.println("Could not create output file at " + finalFileName);
 			else
 				System.out.println("Created new file " + finalFileName);
 		}
 		
 		return new PrintWriter(new FileOutputStream(outputDirectory, true));
+	}
+	
+	private static String TryParsingDate(String input, String originalLine)
+	{
+		if(input == null
+	            || input.compareTo("n.v.") == 0 
+				|| input.compareTo("n.a.")  == 0
+				|| input.compareTo("") == 0) {
+			return null;
+		} else {
+			try	{
+				return outputDateTimeFormat.format(dateFormatGerman.parse(input));
+			}
+			catch (ParseException e) {
+				try {
+					return outputDateTimeFormat.format(dateFormatEnglish.parse(input));
+				} catch (ParseException e1) {
+					e1.printStackTrace();
+					parserLog.println("Unable to parse date:");
+					parserLog.println(input);
+					parserLog.println(originalLine);
+					return null;
+				}				
+			}	
+		}
 	}
 }
