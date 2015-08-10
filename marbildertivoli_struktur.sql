@@ -39,4 +39,4 @@ CREATE TABLE IF NOT EXISTS `marbildertivoli` (
   `Dateityp` varchar(255) CHARACTER SET utf8 DEFAULT NULL COMMENT 'Typ nach CDFinder',
   PRIMARY KEY (`PS_MarbilderTivoliID`),
   KEY `FS_ArachneEntityID` (`FS_ArachneEntityID`)
-) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci AUTO_INCREMENT=53684900 ;
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
